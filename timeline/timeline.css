@@ -1,0 +1,56 @@
+.container {
+  background: #DDD;
+  height: 100%;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  top: 0;
+  width: 400px;
+}
+
+.line {
+  background: #aaa;
+  height: 10px;
+  position: relative;
+  top: 20px;
+  width: 100%;
+}
+
+.scrubber {
+  background: #D00;
+  border-radius: 3px;
+  left: 0%;
+  position: absolute;
+  top: -15px; /* -0.5 x (.line height - .toggle height) */
+  width: 3px;
+  -webkit-transform: translateZ(0);
+  cursor: col-resize;
+}
+
+.layer {
+  position: absolute;
+  background: #00D;
+  height: 20px;
+  width: 100%;
+  top: 40px;
+  color: white;
+}
+
+.elementLayer {
+  position: absolute;
+  background: #88D;
+  height: 20px;
+  width: 100%;
+  top: 40px;
+  color: white;
+}
+
+.groupLayer {
+  position: absolute;
+  background: #8D8;
+  height: 20px;
+  width: 100%;
+  top: 40px;
+  color: white;
+}
