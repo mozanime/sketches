@@ -54,3 +54,12 @@
   top: 40px;
   color: white;
 }
+
+.animationLayer {
+  position: absolute;
+  background: #D88;
+  height: 20px;
+  width: 100%;
+  top: 40px;
+  color: white;
+}
