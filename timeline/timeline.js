@@ -28,37 +28,27 @@ let scrubber;
 let timeline;
 
 document.addEventListener("DOMContentLoaded", ()=>{
+    setTimeout(init, 100);
+});
+function init() {
   scrubber = document.getElementById("scrubber");
   timeline = new Timeline();
   timeline.init(scrubber);
 
-  // サンプル
-  let targetElem = document.createElement("div");
-  document.body.appendChild(targetElem);
-  targetElem.innerHTML = "Sample1";
-  targetElem.style.marginLeft = '400px';
-  let effect = new KeyframeEffect(targetElem, {marginLeft:['400px', '500px']}, 10*1000);
-  let animLayer = new AnimationLayer(100, 20, "animation1", effect);
-  let elemLayer = new ElementLayer(100, 20, "element1", targetElem, animLayer);
-  timeline.addLayer(elemLayer);
+  let count = 0;
+  Array.forEach(document.querySelectorAll("section"), (section) => {
+    let targetElemLeft = section.querySelector(".left");
+    let elemLayerLeft  = new ElementLayer(100, 20, "section[" + count + "].left", targetElemLeft);
+    let targetElemRight = section.querySelector(".right");
+    let elemLayerRight  = new ElementLayer(100, 20, "section[" + count + "].right", targetElemRight);
+    let targetElem = section;
+    let elemLayer  = new ElementLayer(100, 20, "section[" + count + "]", targetElem);
 
-  let targetElem2 = document.createElement("div");
-  document.body.appendChild(targetElem2);
-  targetElem2.innerHTML = "Sample2";
-  targetElem2.style.marginLeft = '400px';
-  let effect2 = new KeyframeEffect(targetElem2, {marginLeft:['400px', '500px']}, 10*1000);
-  let animLayer2 = new AnimationLayer(100, 20, "animation2", effect2);
-  let elemLayer2 = new ElementLayer(100, 20, "element2", targetElem2, animLayer2);
-  timeline.addLayer(elemLayer2);
-
-  // グループサンプル
-  let groupLayer = new GroupLayer(100, 20, "group1");
-  let animLayer3 = new AnimationLayer(100, 20, "animation3");
-  groupLayer.addLayer(elemLayer);
-  groupLayer.addLayer(elemLayer2);
-  groupLayer.addAnimationLayer(animLayer3);
-  timeline.addLayer(groupLayer);
- 
+    timeline.addLayer(elemLayerLeft);
+    timeline.addLayer(elemLayerRight);
+    timeline.addLayer(elemLayer);
+    count++;
+  });
 
   // 仮実装(操作するためのコンポーネントを追加する)
   window.addEventListener("keyup", (e) => {
@@ -73,7 +63,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
     }
   });
 
-});
+  timeline.start();
+}
 
 function Timeline() {
   this.layers = [];
@@ -147,7 +138,7 @@ Timeline.prototype = {
     this.scrubberAnimation = new Animation(
       new KeyframeEffect(this.scrubber,
                          {left:['0%', '100%']},
-			 10 * 1000), document.timeline);
+			 {duration:35 * 1000, iterations:Infinity}), document.timeline);
     this.animationEffects.forEach((effect) => { effect.play(); });
     this.scrubberAnimation.play();
   },
@@ -159,8 +150,8 @@ Timeline.prototype = {
       this.start();
     }
     this.scrubberAnimation.pause();
-    this.scrubberAnimation.currentTime = seek * 10 * 1000;
-    this.animationEffects.forEach((effect) => { effect.currentTime = seek * 10 * 1000; });
+    this.scrubberAnimation.currentTime = seek * 35 * 1000;
+    this.animationEffects.forEach((effect) => { effect.currentTime = seek * 35 * 1000; });
   },
 
   // 再生
@@ -202,13 +193,12 @@ Timeline.prototype = {
 
       this.layers.push(layer);
 
-      // AnimationLayer がある場合は追加
-      if (layer.getAnimationLayer()) {
+      // Animation がある場合は AnimationLayer 追加
+      if (this._isElementLayer(layer) && layer.targetElem.getAnimations().length > 0) {
+        let anim = layer.targetElem.getAnimations()[0];
+        layer.addAnimationLayer(new AnimationLayer(100, 20, "Animation of " + layer.name, anim.effect));
         this._addAnimationLayer(layer.getAnimationLayer(), layer);
-        if (layer.getAnimationLayer().getEffect()){
-          this.animationEffects.push(
-            new Animation(layer.getAnimationLayer().getEffect(), document.timeline));
-	}
+        this.animationEffects.push(anim);
       }
     }
   },
