@@ -38,11 +38,11 @@ function init() {
   let count = 0;
   Array.forEach(document.querySelectorAll("section"), (section) => {
     let targetElemLeft = section.querySelector(".left");
-    let elemLayerLeft  = new ElementLayer(100, 20, "section[" + count + "].left", targetElemLeft);
+    let elemLayerLeft  = new ElementLayer("section[" + count + "].left", targetElemLeft);
     let targetElemRight = section.querySelector(".right");
-    let elemLayerRight  = new ElementLayer(100, 20, "section[" + count + "].right", targetElemRight);
+    let elemLayerRight  = new ElementLayer("section[" + count + "].right", targetElemRight);
     let targetElem = section;
-    let elemLayer  = new ElementLayer(100, 20, "section[" + count + "]", targetElem);
+    let elemLayer  = new ElementLayer("section[" + count + "]", targetElem);
 
     timeline.addLayer(elemLayerLeft);
     timeline.addLayer(elemLayerRight);
@@ -70,6 +70,7 @@ function Timeline() {
   this.layers = [];
   this.scrubberAnimation = undefined;
   this.animationEffects = []; // 各レイヤーを探索する時間を避ける為
+  this.animationsDuration = 35 * 1000;  // Maximum animation duration.(currently fixed value)
 
   this.onScrubberMouseDown  = this.onScrubberMouseDown.bind(this);
   this.onScrubberMouseUp    = this.onScrubberMouseUp.bind(this);
@@ -196,7 +197,7 @@ Timeline.prototype = {
       // Animation がある場合は AnimationLayer 追加
       if (this._isElementLayer(layer) && layer.targetElem.getAnimations().length > 0) {
         let anim = layer.targetElem.getAnimations()[0];
-        layer.addAnimationLayer(new AnimationLayer(100, 20, "Animation of " + layer.name, anim.effect));
+        layer.addAnimationLayer(new AnimationLayer("Animation of " + layer.name, anim.effect));
         this._addAnimationLayer(layer.getAnimationLayer(), layer);
         this.animationEffects.push(anim);
       }
@@ -211,6 +212,11 @@ Timeline.prototype = {
     layer.elem = elem;
     elem.innerText = layer.name;
 
+    if (layer.getEffectDuration() > this.animationsDuration) {
+      // TODO : recalc widht for all elements.
+    }
+
+    elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 100) + '%';
     let cs = getComputedStyle(targetLayer.elem);
     elem.style.top = (parseFloat(cs.top) + parseFloat(cs.height)) + 'px';
   },
@@ -248,7 +254,7 @@ Timeline.prototype = {
  * Layer
  *  レイヤーを示す抽象化クラス
  */
-function Layer(width, delay, name) {
+function Layer(name) {
 }
 Layer.prototype = {
 };
@@ -258,9 +264,7 @@ Layer.prototype = {
  *  アニメーションを示すレイヤー
  *  ElementLayer or GroupLayer に関連づく
  */
-function AnimationLayer(width, delay, name, effect) {
-  this.width = width;
-  this.delay = delay;
+function AnimationLayer(name, effect) {
   this.name = name;
   this.effect = effect;
 }
@@ -268,6 +272,14 @@ AnimationLayer.prototype = Object.create(Layer.prototype);
 AnimationLayer.constructor = AnimationLayer;
 AnimationLayer.prototype = {
   getEffect: function() { return this.effect;},
+
+  getEffectDuration: function() {
+    if (!this.effect) {
+      return 0;
+    }
+
+    return this.effect.timing.duration;
+  },
 };
 
 /*
@@ -275,9 +287,7 @@ AnimationLayer.prototype = {
  *  素材を示すレイヤー
  *  AnimationLayer を持つ(現時点では1つのAnimationLayerのみ)
  */
-function ElementLayer(width, delay, name, targetElem, animationLayer) {
-  this.width = width;
-  this.delay = delay;
+function ElementLayer(name, targetElem, animationLayer) {
   this.name = name;
   this.targetElem = targetElem;
   this.animationLayer  = animationLayer;
@@ -306,9 +316,7 @@ ElementLayer.prototype = {
  *  ElementLayer/AnimationLayer/GroupLayer を持つ。
  *  GroupLayer に紐づくAnimationLayer は現時点では１つ
  */
-function GroupLayer(width, delay, name, animation) {
-  this.width = width;
-  this.delay = delay;
+function GroupLayer(name, animation) {
   this.name = name;
   this.anim  = animation;
   this.layers = [];
