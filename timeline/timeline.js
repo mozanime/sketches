@@ -35,20 +35,9 @@ function init() {
   timeline = new Timeline();
   timeline.init(scrubber);
 
-  let count = 0;
-  Array.forEach(document.querySelectorAll("section"), (section) => {
-    let targetElemLeft = section.querySelector(".left");
-    let elemLayerLeft  = new ElementLayer("section[" + count + "].left", targetElemLeft);
-    let targetElemRight = section.querySelector(".right");
-    let elemLayerRight  = new ElementLayer("section[" + count + "].right", targetElemRight);
-    let targetElem = section;
-    let elemLayer  = new ElementLayer("section[" + count + "]", targetElem);
-
-    timeline.addLayer(elemLayerLeft);
-    timeline.addLayer(elemLayerRight);
-    timeline.addLayer(elemLayer);
-    count++;
-  });
+  let main = document.querySelectorAll("main")[0];
+  let elementLayer = new ElementLayer("main", main);
+  timeline.addLayer(elementLayer);
 
   // 仮実装(操作するためのコンポーネントを追加する)
   window.addEventListener("keyup", (e) => {
@@ -70,7 +59,7 @@ function Timeline() {
   this.layers = [];
   this.scrubberAnimation = undefined;
   this.animationEffects = []; // 各レイヤーを探索する時間を避ける為
-  this.animationsDuration = 35 * 1000;  // Maximum animation duration.(currently fixed value)
+  this.animationsDuration = 0;  // Maximum animation duration.(currently fixed value)
 
   this.onScrubberMouseDown  = this.onScrubberMouseDown.bind(this);
   this.onScrubberMouseUp    = this.onScrubberMouseUp.bind(this);
@@ -213,7 +202,8 @@ Timeline.prototype = {
     elem.innerText = layer.name;
 
     if (layer.getEffectDuration() > this.animationsDuration) {
-      // TODO : recalc widht for all elements.
+      this.animationsDuration = layer.getEffectDuration();
+      this.recalcAnimationTimelineWidth();
     }
 
     elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 100) + '%';
@@ -238,6 +228,14 @@ Timeline.prototype = {
     } else {
       return this.layers[this.layers.length - 1].elem;
     }
+  },
+
+  recalcAnimationTimelineWidth: function() {
+    this.layers.forEach((layer) => {
+      if (layer instanceof AnimationLayer && layer.elem) {
+          layer.elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 100) + '%';
+      }
+    });
   },
 
   // TODO : We might need to move Utility class.
