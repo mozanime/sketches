@@ -1,0 +1,30 @@
+@keyframes left {
+  from { transform: translate(-2048px); }
+  to {   transform: translate(0px); }
+}
+
+@keyframes right {
+  from { transform: translate(0px); }
+  to {   transform: translate(2048px); }
+}
+
+div {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  background-image: url(foreground.png);
+  width: 2048px;
+  height: 800px;
+  background-repeat: no-repeat;
+  animation-duration: 10s;
+  animation-timing-function: linear;
+  animation-iteration-count: Infinite;
+}
+
+#left {
+  animation-name: left;
+}
+
+#right {
+  animation-name: right;
+}
