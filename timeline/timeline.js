@@ -2,14 +2,12 @@
  * timeline.js
  *  タイムラインを表示する
  *  タイムライン上にはレイヤーを表示できる。
- *  レイヤーは ElementLayer / AnimationLaer / GroupLayer で構成される
- *  GroupLayer は ElementLayer / AnimationLayer の集合
- *  AnimationLayer は ElementLayer / GroupLayer に紐づくため、
- *  ElementLayer / GroupLayer に属性として含まれる(好ましくないけどね)
+ *  レイヤーは ElementLayer / AnimationLaer で構成される
+ *  AnimationLayer は ElementLayer に紐づくため、
+ *  ElementLayer に属性として含まれる(好ましくないけどね)
  *
- *  Layer = (ElementLayer | AnimationLayer | GroupLayer)
- *  GroupLayer = (ElementLayer | AnimationLayer)*
- *  (ElementLayer | GroupLayer).anim = AnimationLayer
+ *  Layer = (ElementLayer | AnimationLayer )
+ *  ElementLayer.anim = AnimationLayer
  *  
  *  code:
  *   let elementLayer = new ElementLayer(targetElem);
@@ -17,11 +15,6 @@
  *   
  *   let animationLayer = new AnimationLayer(new Keyframe(...));
  *   timeline.addLayer(elementLayer, animationLayer);
- *
- *   let groupLayer = new GroupLayer(elementLayer, animationLayer);
- *   timeline.addLayer(groupLayer);
- *   timeline.addLayer(groupLayer, animationLayerForGroup);
- *
  */
 
 let scrubber;
@@ -80,6 +73,9 @@ Timeline.prototype = {
     containerElement.appendChild(this.line);
     this.line.setAttribute("class", "line");
 
+  },
+
+  prepare : function() {
     this.scrubber = document.createElement("div");
     this.line.appendChild(this.scrubber);
     this.scrubber.setAttribute("class", "scrubber");
@@ -124,6 +120,7 @@ Timeline.prototype = {
 
   // アニメーション全体のシーク・再生・停止動作
   start: function() {
+    this.prepare();
     if (this.scrubberAnimation) return;
     this.scrubberAnimation = new Animation(
       new KeyframeEffect(this.scrubber,
@@ -164,8 +161,7 @@ Timeline.prototype = {
       return;
     }
 
-    if (this._isElementLayer(layer) ||
-        this._isGroupLayer(layer)) {
+    if (this._isElementLayer(layer)) {
       // レイヤーの要素をいじる
       let elem = document.createElement("div");
       this.containerElement.appendChild(elem);
@@ -211,9 +207,6 @@ Timeline.prototype = {
     elem.style.top = (parseFloat(cs.top) + parseFloat(cs.height)) + 'px';
   },
 
-  _addSubLayer: function(layer) {
-  },
-
   // レイヤーの最後の要素を返す(ない場合は、Line)
   getLastLayer: function() {
     if (this.layers.length <= 0) {
@@ -242,32 +235,18 @@ Timeline.prototype = {
   _isElementLayer: function(layer) {
     return layer instanceof ElementLayer;
   },
-
-  _isGroupLayer: function(layer) {
-    return layer instanceof GroupLayer;
-  },
 };
 
-/*
- * Layer
- *  レイヤーを示す抽象化クラス
- */
-function Layer(name) {
-}
-Layer.prototype = {
-};
 
 /*
  * AnimationLayer
  *  アニメーションを示すレイヤー
- *  ElementLayer or GroupLayer に関連づく
+ *  ElementLayer  に関連づく
  */
 function AnimationLayer(name, effect) {
   this.name = name;
   this.effect = effect;
 }
-AnimationLayer.prototype = Object.create(Layer.prototype);
-AnimationLayer.constructor = AnimationLayer;
 AnimationLayer.prototype = {
   getEffect: function() { return this.effect;},
 
@@ -290,8 +269,6 @@ function ElementLayer(name, targetElem, animationLayer) {
   this.targetElem = targetElem;
   this.animationLayer  = animationLayer;
 }
-ElementLayer.prototype = Object.create(Layer.prototype);
-ElementLayer.constructor = ElementLayer;
 ElementLayer.prototype = {
   addAnimationLayer: function(animationLayer) {
     this.animationLayer = animationLayer;
@@ -308,39 +285,3 @@ ElementLayer.prototype = {
   },
 };
 
-
-/*
- * GroupLayer
- *  ElementLayer/AnimationLayer/GroupLayer を持つ。
- *  GroupLayer に紐づくAnimationLayer は現時点では１つ
- */
-function GroupLayer(name, animation) {
-  this.name = name;
-  this.anim  = animation;
-  this.layers = [];
-}
-GroupLayer.prototype = Object.create(Layer.prototype);
-GroupLayer.constructor = GroupLayer;
-GroupLayer.prototype = {
-  addLayer: function(layer) {
-    if(layer instanceof ElementLayer) {
-      this.layers.push(layer);
-    } else if (layer instanceof GroupLayer) {
-      this.layer.push(layer);
-    } else if (layer instanceof AnimationLayer) {
-	throw new Error("Not implemented yet. You should use " + 
-                        "addAnimationLayer in order to add " + 
-                        "AnimationLayer to this GroupLayer.");
-    }
-  },
-  addAnimationLayer: function(animationLayer) {
-    this.animationLayer = animationLayer;
-  },
-  getAnimationLayer: function() { return this.animationLayer; },
-  getLayers: function() { return this.layers; },  
-
-  getLastLayer: function() {
-    if(this.layers.length === 0 ) return this;
-    return this.layers[this.layers.length - 1].getLastLayer();
-  },
-};
