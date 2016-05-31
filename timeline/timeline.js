@@ -28,9 +28,14 @@ function init() {
   timeline = new Timeline();
   timeline.init(scrubber);
 
+  let frames = document.querySelectorAll("iframe");
+  for (let i=0; i<frames.length; i++) {
+    timeline.addLayer(new ElementLayer("background", frames[i].contentDocument));
+  }
   let main = document.querySelectorAll("main")[0];
   let elementLayer = new ElementLayer("main", main);
   timeline.addLayer(elementLayer);
+
 
   // 仮実装(操作するためのコンポーネントを追加する)
   window.addEventListener("keyup", (e) => {
@@ -42,7 +47,7 @@ function init() {
         timeline.restart();
     } else if (e.keyCode == e.DOM_VK_S) {
         timeline.seek(0.25);
-    }
+    } 
   });
 
   timeline.start();
@@ -52,7 +57,7 @@ function Timeline() {
   this.layers = [];
   this.scrubberAnimation = undefined;
   this.animationEffects = []; // 各レイヤーを探索する時間を避ける為
-  this.animationsDuration = 0;  // Maximum animation duration.(currently fixed value)
+  this.animationsDuration = 20*1000;  // Maximum animation duration.(currently fixed value)
 
   this.onScrubberMouseDown  = this.onScrubberMouseDown.bind(this);
   this.onScrubberMouseUp    = this.onScrubberMouseUp.bind(this);
@@ -108,7 +113,6 @@ Timeline.prototype = {
   },
 
   cancelTimeHeaderDragging: function() {
-    console.log("cancelTimeHeaderDragging");
     this.scrubber.addEventListener("mouseup", this.onScrubberMouseUp);
     this.containerElement.removeEventListener("mouseup", this.onScrubberMouseUp);
     this.containerElement.removeEventListener("mousemove", this.onScrubberMouseMove);
@@ -166,25 +170,25 @@ Timeline.prototype = {
       let elem = document.createElement("div");
       this.containerElement.appendChild(elem);
       layer.elem = elem;
-      if (this._isElementLayer(layer)) {
-        elem.setAttribute("class", "elementLayer");
-      } else {
-        elem.setAttribute("class", "groupLayer");
-      }
+      elem.setAttribute("class", "elementLayer");
       elem.innerText = layer.name;
 
       let last = this.getLastLayer();
       let cs = getComputedStyle(last);
-      elem.style.top = (parseFloat(cs.top) + parseFloat(cs.height) + 10) + 'px';
+      elem.style.top = (parseFloat(cs.top) + parseFloat(cs.height)) + 'px';
 
       this.layers.push(layer);
 
       // Animation がある場合は AnimationLayer 追加
       if (this._isElementLayer(layer) && layer.targetElem.getAnimations().length > 0) {
-        let anim = layer.targetElem.getAnimations()[0];
-        layer.addAnimationLayer(new AnimationLayer("Animation of " + layer.name, anim.effect));
-        this._addAnimationLayer(layer.getAnimationLayer(), layer);
-        this.animationEffects.push(anim);
+        let anims = layer.targetElem.getAnimations();
+	for (let i=0; i<anims.length; i++) {
+          let anim = anims[i];
+          let animLayer = new AnimationLayer("Anim[" + layer.name + "]", anim.effect)
+          this._addAnimationLayer(animLayer, layer);
+          layer.addAnimationLayer(animLayer);
+          this.animationEffects.push(anim);
+	}
       }
     }
   },
@@ -203,7 +207,7 @@ Timeline.prototype = {
     }
 
     elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 100) + '%';
-    let cs = getComputedStyle(targetLayer.elem);
+    let cs = getComputedStyle(targetLayer.getLastLayer().elem);
     elem.style.top = (parseFloat(cs.top) + parseFloat(cs.height)) + 'px';
   },
 
@@ -212,15 +216,8 @@ Timeline.prototype = {
     if (this.layers.length <= 0) {
       return this.line;
     }
-
     let layer = this.layers[this.layers.length - 1];
-    if (layer instanceof ElementLayer && !layer.getAnimationLayer()) {
-      return layer.elem;
-    } else if (layer instanceof ElementLayer && layer.getAnimationLayer()) {
-      return layer.getAnimationLayer().elem;
-    } else {
-      return this.layers[this.layers.length - 1].elem;
-    }
+    return layer.getLastLayer().elem;
   },
 
   recalcAnimationTimelineWidth: function() {
@@ -267,20 +264,25 @@ AnimationLayer.prototype = {
 function ElementLayer(name, targetElem, animationLayer) {
   this.name = name;
   this.targetElem = targetElem;
-  this.animationLayer  = animationLayer;
+  this.animationLayers  = [];
+  if (animationLayer) {
+    this.animationLayers.push(animationLayer);
+  }
 }
 ElementLayer.prototype = {
   addAnimationLayer: function(animationLayer) {
-    this.animationLayer = animationLayer;
+    if(animationLayer) {
+      this.animationLayers.push(animationLayer);
+    }
   },
-  getAnimationLayer: function() { return this.animationLayer; },
+  getAnimationLayers: function() { return this.animationLayers; },
 
   // 最後のレイヤーを返す(描画で必要)
   getLastLayer: function() {
-    if (!this.animationLayer) {
+    if (this.animationLayers.length == 0) {
       return this;
     } else {
-      return this.animationLayer;
+      return this.animationLayers[this.animationLayers.length - 1];
     }
   },
 };

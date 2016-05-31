@@ -44,15 +44,7 @@
   width: 100%;
   top: 40px;
   color: white;
-}
-
-.groupLayer {
-  position: absolute;
-  background: #8D8;
-  height: 20px;
-  width: 100%;
-  top: 40px;
-  color: white;
+  line-height: 20px;
 }
 
 .animationLayer {
@@ -62,4 +54,5 @@
   width: 100%;
   top: 40px;
   color: white;
+  line-height: 20px;
 }

@@ -15,9 +15,23 @@ Element.prototype.animate = function() {
 
 Element.prototype.appendAnimation = function(url) {
   var iframe = document.createElement("iframe");
+  iframe.classList.add("mozanime-layered-content");
   iframe.src = url;
   iframe.scrolling = "no";
   iframe.frameborder = "no";
   iframe.style.border = "none";
   this.appendChild(iframe);
 };
+
+Document.prototype.originalGetAnimations = Document.prototype.getAnimations;
+Document.prototype.getAnimations = function() {
+  var animations =
+    Document.prototype.originalGetAnimations.apply(this, arguments);
+  Array.forEach(
+    this.querySelectorAll(".mozanime-layered-content"),
+    function(iframe) {
+      Array.prototype.push.apply(animations,
+                                 iframe.contentDocument.getAnimations());
+    });
+  return animations;
+}
