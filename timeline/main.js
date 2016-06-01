@@ -5,8 +5,8 @@ document.addEventListener("DOMContentLoaded", function() {
     .appendAnimation("./animations/middleground/middleground.html");
   document.getElementById("foreground")
     .appendAnimation("./animations/foreground/foreground.html");
-  document.getElementById("playground")
-    .appendAnimation("./animations/butterfly/butterfly.html");
+//  document.getElementById("playground")
+//    .appendAnimation("./animations/butterfly/butterfly.html");
 
   document.querySelector("main").animate("./effects/camera-focus.json");
 });
