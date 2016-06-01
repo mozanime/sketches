@@ -18,10 +18,10 @@ function init() {
   for (let i=0; i<frames.length; i++) {
       timeline.addLayer(new ElementLayer("background" + (++count), frames[i].contentDocument));
   }
+
   let main = document.querySelectorAll("main")[0];
   let elementLayer = new ElementLayer("main", main);
   timeline.addLayer(elementLayer);
-
 
   // Rough implementation
   window.addEventListener("keyup", (e) => {
@@ -35,17 +35,15 @@ function init() {
       timeline.seek(0.25);
     } else if (e.keyCode == e.DOM_VK_A) {
       // Add new animation effect to main(top layer)
-      timeline.addNewEffectLayer(
-        new EffectLayer("new animation",
-          new KeyframeEffect(main,
-                             {transform:['rotate(0deg)', 'rotate(180deg)']},
-                             {duration:20*1000, iterations:Infinity})),
-          elementLayer);
-      let newElem = document.createElement("div");
+      let newElem = document.createElement("section");
       main.appendChild(newElem);
-        newElem.appendAnimation("./animations/middleground/middleground.html");
-      let newElemLayer = new ElementLayer("Buterfly!", newElem);
-
+      newElem.setAttribute("id", "playground");
+      newElem.appendAnimation("./animations/butterfly/butterfly.html");
+      newElem.children[0].addEventListener("load", ()=>{
+        console.log(newElem.children[0].contentDocument);
+        let newElemLayer = new ElementLayer("Buterfly!", newElem.children[0].contentDocument);
+        timeline.addLayer(newElemLayer);
+      });
     }
   });
 
@@ -182,7 +180,6 @@ Timeline.prototype = {
 
       this.layers.push(layer);
 
-      // Animation がある場合は EffectLayer 追加
       if (this._isElementLayer(layer) && layer.targetElem.getAnimations().length > 0) {
         let anims = layer.targetElem.getAnimations();
         for (let i=0; i<anims.length; i++) {
@@ -212,7 +209,6 @@ Timeline.prototype = {
     }
     // TODO :
     //   - Recalculate top position all elements. (currently last element only)
-    //   - 
     let anim = new Animation(effectLayer.getEffect(), document.timeline);
     this._addEffectLayer(effectLayer, targetElementLayer);
     this.animationEffects.push(anim);
