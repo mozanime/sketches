@@ -2,26 +2,19 @@
  * timeline.js
  *  タイムラインを表示する
  *  タイムライン上にはレイヤーを表示できる。
- *  レイヤーは ElementLayer / AnimationLaer / GroupLayer で構成される
- *  GroupLayer は ElementLayer / AnimationLayer の集合
- *  AnimationLayer は ElementLayer / GroupLayer に紐づくため、
- *  ElementLayer / GroupLayer に属性として含まれる(好ましくないけどね)
+ *  レイヤーは ElementLayer / EffectLayer で構成される
+ *  EffectLayer は ElementLayer に紐づくため、
+ *  ElementLayer に属性として含まれる(好ましくないけどね)
  *
- *  Layer = (ElementLayer | AnimationLayer | GroupLayer)
- *  GroupLayer = (ElementLayer | AnimationLayer)*
- *  (ElementLayer | GroupLayer).anim = AnimationLayer
+ *  Layer = (ElementLayer | EffectLayer )
+ *  ElementLayer.anim = EffectLayer
  *  
  *  code:
  *   let elementLayer = new ElementLayer(targetElem);
  *   timeline.addLayer(elementlayer);
  *   
- *   let animationLayer = new AnimationLayer(new Keyframe(...));
- *   timeline.addLayer(elementLayer, animationLayer);
- *
- *   let groupLayer = new GroupLayer(elementLayer, animationLayer);
- *   timeline.addLayer(groupLayer);
- *   timeline.addLayer(groupLayer, animationLayerForGroup);
- *
+ *   let effectLayer = new EffectLayer(new Keyframe(...));
+ *   timeline.addLayer(elementLayer, effectLayer);
  */
 
 let scrubber;
@@ -35,20 +28,31 @@ function init() {
   timeline = new Timeline();
   timeline.init(scrubber);
 
+  let frames = document.querySelectorAll("iframe");
+  let count = 0;
+  for (let i=0; i<frames.length; i++) {
+      timeline.addLayer(new ElementLayer("background" + (++count), frames[i].contentDocument));
+  }
   let main = document.querySelectorAll("main")[0];
   let elementLayer = new ElementLayer("main", main);
   timeline.addLayer(elementLayer);
 
+
   // 仮実装(操作するためのコンポーネントを追加する)
   window.addEventListener("keyup", (e) => {
     if (e.keyCode == e.DOM_VK_SPACE) {
-        timeline.start();
+      timeline.start();
     } else if (e.keyCode == e.DOM_VK_P) {
-	timeline.pause();
+      timeline.pause();
     } else if (e.keyCode == e.DOM_VK_R) {
-        timeline.restart();
+      timeline.restart();
     } else if (e.keyCode == e.DOM_VK_S) {
-        timeline.seek(0.25);
+      timeline.seek(0.25);
+    } else if (e.keyCode == e.DOM_VK_A) {
+      timeline.addNewEffectLayer(
+        new EffectLayer("new animation",
+                        new KeyframeEffect(main, {transform:['rotate(0deg)', 'rotate(180deg)']}, {duration:20*1000, iterations:Infinity})),
+        elementLayer);
     }
   });
 
@@ -59,13 +63,14 @@ function Timeline() {
   this.layers = [];
   this.scrubberAnimation = undefined;
   this.animationEffects = []; // 各レイヤーを探索する時間を避ける為
-  this.animationsDuration = 0;  // Maximum animation duration.(currently fixed value)
+  this.animationsDuration = 20*1000;  // Maximum animation duration.(currently fixed value)
 
   this.onScrubberMouseDown  = this.onScrubberMouseDown.bind(this);
   this.onScrubberMouseUp    = this.onScrubberMouseUp.bind(this);
   this.onScrubberMouseLeave = this.onScrubberMouseLeave.bind(this);
   this.moveScrubberTo       = this.moveScrubberTo.bind(this);
   this.cancelTimeHeaderDragging = this.cancelTimeHeaderDragging.bind(this);
+  this.addNewEffectLayer    = this.addNewEffectLayer.bind(this);
 }
 Timeline.prototype = {
   init: function (containerElement) {
@@ -80,6 +85,9 @@ Timeline.prototype = {
     containerElement.appendChild(this.line);
     this.line.setAttribute("class", "line");
 
+  },
+
+  prepare : function() {
     this.scrubber = document.createElement("div");
     this.line.appendChild(this.scrubber);
     this.scrubber.setAttribute("class", "scrubber");
@@ -112,7 +120,6 @@ Timeline.prototype = {
   },
 
   cancelTimeHeaderDragging: function() {
-    console.log("cancelTimeHeaderDragging");
     this.scrubber.addEventListener("mouseup", this.onScrubberMouseUp);
     this.containerElement.removeEventListener("mouseup", this.onScrubberMouseUp);
     this.containerElement.removeEventListener("mousemove", this.onScrubberMouseMove);
@@ -124,6 +131,7 @@ Timeline.prototype = {
 
   // アニメーション全体のシーク・再生・停止動作
   start: function() {
+    this.prepare();
     if (this.scrubberAnimation) return;
     this.scrubberAnimation = new Animation(
       new KeyframeEffect(this.scrubber,
@@ -164,40 +172,59 @@ Timeline.prototype = {
       return;
     }
 
-    if (this._isElementLayer(layer) ||
-        this._isGroupLayer(layer)) {
+    if (this._isElementLayer(layer)) {
       // レイヤーの要素をいじる
       let elem = document.createElement("div");
       this.containerElement.appendChild(elem);
       layer.elem = elem;
-      if (this._isElementLayer(layer)) {
-        elem.setAttribute("class", "elementLayer");
-      } else {
-        elem.setAttribute("class", "groupLayer");
-      }
+      elem.setAttribute("class", "elementLayer");
       elem.innerText = layer.name;
 
       let last = this.getLastLayer();
       let cs = getComputedStyle(last);
-      elem.style.top = (parseFloat(cs.top) + parseFloat(cs.height) + 10) + 'px';
+      elem.style.top = (parseFloat(cs.top) + parseFloat(cs.height)) + 'px';
 
       this.layers.push(layer);
 
-      // Animation がある場合は AnimationLayer 追加
+      // Animation がある場合は EffectLayer 追加
       if (this._isElementLayer(layer) && layer.targetElem.getAnimations().length > 0) {
-        let anim = layer.targetElem.getAnimations()[0];
-        layer.addAnimationLayer(new AnimationLayer("Animation of " + layer.name, anim.effect));
-        this._addAnimationLayer(layer.getAnimationLayer(), layer);
-        this.animationEffects.push(anim);
+        let anims = layer.targetElem.getAnimations();
+        for (let i=0; i<anims.length; i++) {
+          let anim = anims[i];
+          let effectLayer = new EffectLayer("Anim[" + layer.name + "]", anim.effect)
+          this._addEffectLayer(effectLayer, layer);
+          layer.addEffectLayer(effectLayer);
+          this.animationEffects.push(anim);
+        }
       }
     }
   },
 
-  _addAnimationLayer: function(layer, targetLayer) {
-    if (!(layer instanceof AnimationLayer)) { return; }
+  addNewEffectLayer: function(effectLayer, targetElementLayer) {
+    if (!(targetElementLayer instanceof ElementLayer)) { return; }
+    if (!(effectLayer instanceof EffectLayer)) { return; }
+    if (!this.layers.includes(targetElementLayer)) { return; }
+
+    // Add EffectLayer
+    if (targetElementLayer.getEffectLayers().includes(effectLayer)) {
+      console.log("already added animationlayer");
+      return;
+    }
+    // TODO recal top position all elements. (currently last element only)
+    let anim = new Animation(effectLayer.getEffect(), document.timeline);
+    this._addEffectLayer(effectLayer, targetElementLayer);
+    this.animationEffects.push(anim);
+    anim.play();
+    anim.currentTime = this.animationEffects[0].currentTime;  // TODO
+
+    targetElementLayer.addEffectLayer(effectLayer);
+  },
+
+  _addEffectLayer: function(layer, targetLayer) {
+    if (!(layer instanceof EffectLayer)) { return; }
     let elem = document.createElement("div");
     this.containerElement.appendChild(elem);
-    elem.setAttribute("class", "animationLayer");
+    elem.setAttribute("class", "effectLayer");
     layer.elem = elem;
     elem.innerText = layer.name;
 
@@ -207,11 +234,10 @@ Timeline.prototype = {
     }
 
     elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 100) + '%';
-    let cs = getComputedStyle(targetLayer.elem);
-    elem.style.top = (parseFloat(cs.top) + parseFloat(cs.height)) + 'px';
-  },
-
-  _addSubLayer: function(layer) {
+    let previousElem = targetLayer.getLastLayer().elem;
+    let cs = getComputedStyle(previousElem);
+    let previousElemTop = (previousElem.style.top)?parseFloat(previousElem.style.top):parseFloat(cs.top);
+    elem.style.top = (previousElemTop + parseFloat(cs.height)) + 'px';
   },
 
   // レイヤーの最後の要素を返す(ない場合は、Line)
@@ -219,20 +245,13 @@ Timeline.prototype = {
     if (this.layers.length <= 0) {
       return this.line;
     }
-
     let layer = this.layers[this.layers.length - 1];
-    if (layer instanceof ElementLayer && !layer.getAnimationLayer()) {
-      return layer.elem;
-    } else if (layer instanceof ElementLayer && layer.getAnimationLayer()) {
-      return layer.getAnimationLayer().elem;
-    } else {
-      return this.layers[this.layers.length - 1].elem;
-    }
+    return layer.getLastLayer().elem;
   },
 
   recalcAnimationTimelineWidth: function() {
     this.layers.forEach((layer) => {
-      if (layer instanceof AnimationLayer && layer.elem) {
+      if (layer instanceof EffectLayer && layer.elem) {
           layer.elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 100) + '%';
       }
     });
@@ -242,33 +261,19 @@ Timeline.prototype = {
   _isElementLayer: function(layer) {
     return layer instanceof ElementLayer;
   },
-
-  _isGroupLayer: function(layer) {
-    return layer instanceof GroupLayer;
-  },
 };
 
-/*
- * Layer
- *  レイヤーを示す抽象化クラス
- */
-function Layer(name) {
-}
-Layer.prototype = {
-};
 
 /*
- * AnimationLayer
+ * EffectLayer
  *  アニメーションを示すレイヤー
- *  ElementLayer or GroupLayer に関連づく
+ *  ElementLayer  に関連づく
  */
-function AnimationLayer(name, effect) {
+function EffectLayer(name, effect) {
   this.name = name;
   this.effect = effect;
 }
-AnimationLayer.prototype = Object.create(Layer.prototype);
-AnimationLayer.constructor = AnimationLayer;
-AnimationLayer.prototype = {
+EffectLayer.prototype = {
   getEffect: function() { return this.effect;},
 
   getEffectDuration: function() {
@@ -282,65 +287,43 @@ AnimationLayer.prototype = {
 
 /*
  * ElementLayer
- *  素材を示すレイヤー
- *  AnimationLayer を持つ(現時点では1つのAnimationLayerのみ)
  */
-function ElementLayer(name, targetElem, animationLayer) {
+function ElementLayer(name, targetElem, effectLayer) {
   this.name = name;
   this.targetElem = targetElem;
-  this.animationLayer  = animationLayer;
+  this.effectLayers  = [];
+  if (effectLayer) {
+    this.effectLayers.push(effectLayer);
+  }
 }
-ElementLayer.prototype = Object.create(Layer.prototype);
-ElementLayer.constructor = ElementLayer;
 ElementLayer.prototype = {
-  addAnimationLayer: function(animationLayer) {
-    this.animationLayer = animationLayer;
+  addEffectLayer: function(effectLayer) {
+    if(effectLayer) {
+      this.effectLayers.push(effectLayer);
+    }
   },
-  getAnimationLayer: function() { return this.animationLayer; },
 
-  // 最後のレイヤーを返す(描画で必要)
+  getEffectLayers: function() { return this.effectLayers; },
+
   getLastLayer: function() {
-    if (!this.animationLayer) {
+    if (this.effectLayers.length == 0) {
       return this;
     } else {
-      return this.animationLayer;
+      return this.effectLayers[this.effectLayers.length - 1];
+    }
+  },
+
+  getAnimation: function() {
+    let effect = this._getEffectFromEffectLayers();
+      return new KeyframeEffect(this.targetElem, effect, 10 * 1000); // TODO
+  },
+
+  _getEffectFromEffectLayers: function() {
+    if (this.effectLayers.length > 0) {
+      // TODO : we concerned about effect which different timing(e.g. delay).
+
+      
     }
   },
 };
 
-
-/*
- * GroupLayer
- *  ElementLayer/AnimationLayer/GroupLayer を持つ。
- *  GroupLayer に紐づくAnimationLayer は現時点では１つ
- */
-function GroupLayer(name, animation) {
-  this.name = name;
-  this.anim  = animation;
-  this.layers = [];
-}
-GroupLayer.prototype = Object.create(Layer.prototype);
-GroupLayer.constructor = GroupLayer;
-GroupLayer.prototype = {
-  addLayer: function(layer) {
-    if(layer instanceof ElementLayer) {
-      this.layers.push(layer);
-    } else if (layer instanceof GroupLayer) {
-      this.layer.push(layer);
-    } else if (layer instanceof AnimationLayer) {
-	throw new Error("Not implemented yet. You should use " + 
-                        "addAnimationLayer in order to add " + 
-                        "AnimationLayer to this GroupLayer.");
-    }
-  },
-  addAnimationLayer: function(animationLayer) {
-    this.animationLayer = animationLayer;
-  },
-  getAnimationLayer: function() { return this.animationLayer; },
-  getLayers: function() { return this.layers; },  
-
-  getLastLayer: function() {
-    if(this.layers.length === 0 ) return this;
-    return this.layers[this.layers.length - 1].getLastLayer();
-  },
-};
