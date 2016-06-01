@@ -25,25 +25,38 @@ function init() {
 
   // Rough implementation
   window.addEventListener("keyup", (e) => {
-    if (e.keyCode == e.DOM_VK_SPACE) {
-      timeline.start();
-    } else if (e.keyCode == e.DOM_VK_P) {
-      timeline.pause();
-    } else if (e.keyCode == e.DOM_VK_R) {
-      timeline.restart();
-    } else if (e.keyCode == e.DOM_VK_S) {
-      timeline.seek(0.25);
-    } else if (e.keyCode == e.DOM_VK_A) {
-      // Add new animation effect to main(top layer)
-      let newElem = document.createElement("section");
-      main.appendChild(newElem);
-      newElem.setAttribute("id", "playground");
-      newElem.appendAnimation("./animations/butterfly/butterfly.html");
-      newElem.children[0].addEventListener("load", ()=>{
-        console.log(newElem.children[0].contentDocument);
-        let newElemLayer = new ElementLayer("Buterfly!", newElem.children[0].contentDocument);
-        timeline.addLayer(newElemLayer);
-      });
+    switch (e.keyCode) {
+    case e.DOM_VK_SPACE:
+        timeline.start();
+        break;
+    case e.DOM_VK_P:
+        timeline.pause();
+        break;
+    case e.DOM_VK_R:
+        timeline.restart();
+        break;
+    case e.DOM_VK_S:
+        timeline.seek(0.25);
+        break;
+    case e.DOM_VK_A:
+        // Add new animation effect to main(top layer)
+        let newElem = document.createElement("section");
+        main.appendChild(newElem);
+        newElem.setAttribute("id", "playground");
+        newElem.appendAnimation("./animations/butterfly/butterfly.html");
+        newElem.children[0].addEventListener("load", ()=>{
+            console.log(newElem.children[0].contentDocument);
+            let newElemLayer = new ElementLayer("Buterfly!", newElem.children[0].contentDocument);
+            timeline.addLayer(newElemLayer);
+        });
+        break;
+    case e.DOM_VK_H:
+        if (scrubber.style.visibility == 'hidden') {
+            scrubber.style.visibility = 'visible';
+        } else {
+            scrubber.style.visibility = 'hidden';
+        }
+        break;
     }
   });
 
