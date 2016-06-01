@@ -13,50 +13,56 @@ function init() {
   timeline = new Timeline();
   timeline.init(scrubber);
 
+  // TODO : Fixed value
   let frames = document.querySelectorAll("iframe");
-  let count = 0;
-  for (let i=0; i<frames.length; i++) {
-      timeline.addLayer(new ElementLayer("background" + (++count), frames[i].contentDocument));
-  }
+  timeline.addLayer(new ElementLayer("background", frames[0], 2));
+  timeline.addLayer(new ElementLayer("middleground", frames[1], 100));
+  timeline.addLayer(new ElementLayer("foreground", frames[2], 900));
+  frames[2].style.zIndex = 900;
 
   let main = document.querySelectorAll("main")[0];
-  let elementLayer = new ElementLayer("main", main);
+  let elementLayer = new ElementLayer("main", main, 1);
   timeline.addLayer(elementLayer);
+
+  // reorder.
+  timeline.reOrderLayer();
+
+  let addNumber = 100;
 
   // Rough implementation
   window.addEventListener("keyup", (e) => {
     switch (e.keyCode) {
     case e.DOM_VK_SPACE:
-        timeline.start();
-        break;
+      timeline.start();
+      break;
     case e.DOM_VK_P:
-        timeline.pause();
-        break;
+      timeline.pause();
+      break;
     case e.DOM_VK_R:
-        timeline.restart();
-        break;
+      timeline.restart();
+      break;
     case e.DOM_VK_S:
-        timeline.seek(0.25);
-        break;
+      timeline.seek(0.25);
+      break;
     case e.DOM_VK_A:
-        // Add new animation effect to main(top layer)
-        let newElem = document.createElement("section");
-        main.appendChild(newElem);
-        newElem.setAttribute("id", "playground");
-        newElem.appendAnimation("./animations/butterfly/butterfly.html");
-        newElem.children[0].addEventListener("load", ()=>{
-            console.log(newElem.children[0].contentDocument);
-            let newElemLayer = new ElementLayer("Buterfly!", newElem.children[0].contentDocument);
-            timeline.addLayer(newElemLayer);
-        });
-        break;
+      // Add new animation effect to main(top layer)
+      let newElem = document.createElement("section");
+      main.appendChild(newElem);
+      newElem.setAttribute("id", "playground");
+      newElem.appendAnimation("./animations/butterfly/butterfly.html");
+      newElem.children[0].addEventListener("load", ()=>{
+        let newElemLayer = new ElementLayer("Buterfly!", newElem.children[0], (++addNumber));
+        timeline.addLayer(newElemLayer);
+	timeline.reOrderLayer();
+      });
+      break;
     case e.DOM_VK_H:
-        if (scrubber.style.visibility == 'hidden') {
-            scrubber.style.visibility = 'visible';
-        } else {
-            scrubber.style.visibility = 'hidden';
-        }
-        break;
+      if (scrubber.style.visibility == 'hidden') {
+        scrubber.style.visibility = 'visible';
+      } else {
+        scrubber.style.visibility = 'hidden';
+      }
+      break;
     }
   });
 
@@ -103,8 +109,7 @@ Timeline.prototype = {
   // スクロールに関するイベントリスナー群
 
   onScrubberMouseDown: function(e) {
-      console.log("onscrubbermousedown");
-      this.moveScrubberTo(e.pageX);
+    this.moveScrubberTo(e.pageX);
     this.scrubber.addEventListener("mouseup", this.onScrubberMouseUp);
     this.containerElement.addEventListener("mouseup", this.onScrubberMouseUp);
     this.containerElement.addEventListener("mousemove", this.onScrubberMouseMove);
@@ -193,8 +198,9 @@ Timeline.prototype = {
 
       this.layers.push(layer);
 
-      if (this._isElementLayer(layer) && layer.targetElem.getAnimations().length > 0) {
-        let anims = layer.targetElem.getAnimations();
+      let animatedElement = layer.getAnimatedElement();
+      if (this._isElementLayer(layer) && animatedElement.getAnimations().length > 0) {
+        let anims = animatedElement.getAnimations();
         for (let i=0; i<anims.length; i++) {
           let anim = anims[i];
           let effectLayer = new EffectLayer("Anim[" + layer.name + "]", anim.effect)
@@ -204,10 +210,6 @@ Timeline.prototype = {
         }
       }
     }
-  },
-
-  addNewElementLayer: function(elementLayer) {
-    
   },
 
   addNewEffectLayer: function(effectLayer, targetElementLayer) {
@@ -229,6 +231,7 @@ Timeline.prototype = {
     anim.currentTime = this.animationEffects[0].currentTime;  // TODO
 
     targetElementLayer.addEffectLayer(effectLayer);
+    this.reOrderLayer();
   },
 
   _addEffectLayer: function(layer, targetLayer) {
@@ -249,6 +252,41 @@ Timeline.prototype = {
     let cs = getComputedStyle(previousElem);
     let previousElemTop = (previousElem.style.top)?parseFloat(previousElem.style.top):parseFloat(cs.top);
     elem.style.top = (previousElemTop + parseFloat(cs.height)) + 'px';
+  },
+
+  // Re-Order and change the position of layer
+  reOrderLayer: function() {
+    if (this.layers.length == 0) { return; }
+
+    // First, sort to layers
+    this.layers.sort(function(a,b){
+      if (!a.targetElem || !a.zIndex ||
+          !b.targetElem || !b.zIndex) {
+	  return 0;
+      }
+      let aZIndex = a.zIndex;
+      let bZIndex = b.zIndex;
+      if (aZIndex < bZIndex) return -1;
+      else if (aZIndex > bZIndex) return 1;
+      return 0;
+    });
+
+    let previousElement = this.line;
+    Array.forEach(this.layers, (layer) => {
+      this._changeElementPosition(layer.elem, previousElement);
+      previousElement = layer.elem;
+
+      let effectLayers = layer.getEffectLayers();
+      Array.forEach(effectLayers, (effectLayer) => {
+        this._changeElementPosition(effectLayer.elem, previousElement);
+	previousElement = effectLayer.elem;
+      });
+    });
+  },
+
+  _changeElementPosition: function(targetElem, previousElem) {
+    let cs = getComputedStyle(previousElem);
+    targetElem.style.top = (parseFloat(cs.top) + parseFloat(cs.height)) + 'px';
   },
 
   // レイヤーの最後の要素を返す(ない場合は、Line)
@@ -299,19 +337,24 @@ EffectLayer.prototype = {
 /*
  * ElementLayer
  */
-function ElementLayer(name, targetElem, effectLayer) {
+function ElementLayer(name, targetElem, zIndex) {
   this.name = name;
   this.targetElem = targetElem;
   this.effectLayers  = [];
-  if (effectLayer) {
-    this.effectLayers.push(effectLayer);
-  }
+  this.zIndex = zIndex;
 }
 ElementLayer.prototype = {
   addEffectLayer: function(effectLayer) {
     if(effectLayer) {
       this.effectLayers.push(effectLayer);
     }
+  },
+
+  getAnimatedElement: function() {
+    if (this.targetElem.tagName == 'IFRAME') {
+      return this.targetElem.contentDocument;
+    }
+    return this.targetElem;
   },
 
   getEffectLayers: function() { return this.effectLayers; },
@@ -324,17 +367,5 @@ ElementLayer.prototype = {
     }
   },
 
-  getAnimation: function() {
-    let effect = this._getEffectFromEffectLayers();
-      return new KeyframeEffect(this.targetElem, effect, 10 * 1000); // TODO
-  },
-
-  _getEffectFromEffectLayers: function() {
-    if (this.effectLayers.length > 0) {
-      // TODO : we concerned about effect which different timing(e.g. delay).
-
-      
-    }
-  },
 };
 
