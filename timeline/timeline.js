@@ -2,19 +2,19 @@
  * timeline.js
  *  タイムラインを表示する
  *  タイムライン上にはレイヤーを表示できる。
- *  レイヤーは ElementLayer / AnimationLaer で構成される
- *  AnimationLayer は ElementLayer に紐づくため、
+ *  レイヤーは ElementLayer / EffectLayer で構成される
+ *  EffectLayer は ElementLayer に紐づくため、
  *  ElementLayer に属性として含まれる(好ましくないけどね)
  *
- *  Layer = (ElementLayer | AnimationLayer )
- *  ElementLayer.anim = AnimationLayer
+ *  Layer = (ElementLayer | EffectLayer )
+ *  ElementLayer.anim = EffectLayer
  *  
  *  code:
  *   let elementLayer = new ElementLayer(targetElem);
  *   timeline.addLayer(elementlayer);
  *   
- *   let animationLayer = new AnimationLayer(new Keyframe(...));
- *   timeline.addLayer(elementLayer, animationLayer);
+ *   let effectLayer = new EffectLayer(new Keyframe(...));
+ *   timeline.addLayer(elementLayer, effectLayer);
  */
 
 let scrubber;
@@ -29,8 +29,9 @@ function init() {
   timeline.init(scrubber);
 
   let frames = document.querySelectorAll("iframe");
+  let count = 0;
   for (let i=0; i<frames.length; i++) {
-    timeline.addLayer(new ElementLayer("background", frames[i].contentDocument));
+      timeline.addLayer(new ElementLayer("background" + (++count), frames[i].contentDocument));
   }
   let main = document.querySelectorAll("main")[0];
   let elementLayer = new ElementLayer("main", main);
@@ -40,14 +41,19 @@ function init() {
   // 仮実装(操作するためのコンポーネントを追加する)
   window.addEventListener("keyup", (e) => {
     if (e.keyCode == e.DOM_VK_SPACE) {
-        timeline.start();
+      timeline.start();
     } else if (e.keyCode == e.DOM_VK_P) {
-	timeline.pause();
+      timeline.pause();
     } else if (e.keyCode == e.DOM_VK_R) {
-        timeline.restart();
+      timeline.restart();
     } else if (e.keyCode == e.DOM_VK_S) {
-        timeline.seek(0.25);
-    } 
+      timeline.seek(0.25);
+    } else if (e.keyCode == e.DOM_VK_A) {
+      timeline.addNewEffectLayer(
+        new EffectLayer("new animation",
+                        new KeyframeEffect(main, {transform:['rotate(0deg)', 'rotate(180deg)']}, {duration:20*1000, iterations:Infinity})),
+        elementLayer);
+    }
   });
 
   timeline.start();
@@ -64,6 +70,7 @@ function Timeline() {
   this.onScrubberMouseLeave = this.onScrubberMouseLeave.bind(this);
   this.moveScrubberTo       = this.moveScrubberTo.bind(this);
   this.cancelTimeHeaderDragging = this.cancelTimeHeaderDragging.bind(this);
+  this.addNewEffectLayer    = this.addNewEffectLayer.bind(this);
 }
 Timeline.prototype = {
   init: function (containerElement) {
@@ -179,25 +186,45 @@ Timeline.prototype = {
 
       this.layers.push(layer);
 
-      // Animation がある場合は AnimationLayer 追加
+      // Animation がある場合は EffectLayer 追加
       if (this._isElementLayer(layer) && layer.targetElem.getAnimations().length > 0) {
         let anims = layer.targetElem.getAnimations();
-	for (let i=0; i<anims.length; i++) {
+        for (let i=0; i<anims.length; i++) {
           let anim = anims[i];
-          let animLayer = new AnimationLayer("Anim[" + layer.name + "]", anim.effect)
-          this._addAnimationLayer(animLayer, layer);
-          layer.addAnimationLayer(animLayer);
+          let effectLayer = new EffectLayer("Anim[" + layer.name + "]", anim.effect)
+          this._addEffectLayer(effectLayer, layer);
+          layer.addEffectLayer(effectLayer);
           this.animationEffects.push(anim);
-	}
+        }
       }
     }
   },
 
-  _addAnimationLayer: function(layer, targetLayer) {
-    if (!(layer instanceof AnimationLayer)) { return; }
+  addNewEffectLayer: function(effectLayer, targetElementLayer) {
+    if (!(targetElementLayer instanceof ElementLayer)) { return; }
+    if (!(effectLayer instanceof EffectLayer)) { return; }
+    if (!this.layers.includes(targetElementLayer)) { return; }
+
+    // Add EffectLayer
+    if (targetElementLayer.getEffectLayers().includes(effectLayer)) {
+      console.log("already added animationlayer");
+      return;
+    }
+    // TODO recal top position all elements. (currently last element only)
+    let anim = new Animation(effectLayer.getEffect(), document.timeline);
+    this._addEffectLayer(effectLayer, targetElementLayer);
+    this.animationEffects.push(anim);
+    anim.play();
+    anim.currentTime = this.animationEffects[0].currentTime;  // TODO
+
+    targetElementLayer.addEffectLayer(effectLayer);
+  },
+
+  _addEffectLayer: function(layer, targetLayer) {
+    if (!(layer instanceof EffectLayer)) { return; }
     let elem = document.createElement("div");
     this.containerElement.appendChild(elem);
-    elem.setAttribute("class", "animationLayer");
+    elem.setAttribute("class", "effectLayer");
     layer.elem = elem;
     elem.innerText = layer.name;
 
@@ -207,8 +234,10 @@ Timeline.prototype = {
     }
 
     elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 100) + '%';
-    let cs = getComputedStyle(targetLayer.getLastLayer().elem);
-    elem.style.top = (parseFloat(cs.top) + parseFloat(cs.height)) + 'px';
+    let previousElem = targetLayer.getLastLayer().elem;
+    let cs = getComputedStyle(previousElem);
+    let previousElemTop = (previousElem.style.top)?parseFloat(previousElem.style.top):parseFloat(cs.top);
+    elem.style.top = (previousElemTop + parseFloat(cs.height)) + 'px';
   },
 
   // レイヤーの最後の要素を返す(ない場合は、Line)
@@ -222,7 +251,7 @@ Timeline.prototype = {
 
   recalcAnimationTimelineWidth: function() {
     this.layers.forEach((layer) => {
-      if (layer instanceof AnimationLayer && layer.elem) {
+      if (layer instanceof EffectLayer && layer.elem) {
           layer.elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 100) + '%';
       }
     });
@@ -236,15 +265,15 @@ Timeline.prototype = {
 
 
 /*
- * AnimationLayer
+ * EffectLayer
  *  アニメーションを示すレイヤー
  *  ElementLayer  に関連づく
  */
-function AnimationLayer(name, effect) {
+function EffectLayer(name, effect) {
   this.name = name;
   this.effect = effect;
 }
-AnimationLayer.prototype = {
+EffectLayer.prototype = {
   getEffect: function() { return this.effect;},
 
   getEffectDuration: function() {
@@ -258,31 +287,42 @@ AnimationLayer.prototype = {
 
 /*
  * ElementLayer
- *  素材を示すレイヤー
- *  AnimationLayer を持つ(現時点では1つのAnimationLayerのみ)
  */
-function ElementLayer(name, targetElem, animationLayer) {
+function ElementLayer(name, targetElem, effectLayer) {
   this.name = name;
   this.targetElem = targetElem;
-  this.animationLayers  = [];
-  if (animationLayer) {
-    this.animationLayers.push(animationLayer);
+  this.effectLayers  = [];
+  if (effectLayer) {
+    this.effectLayers.push(effectLayer);
   }
 }
 ElementLayer.prototype = {
-  addAnimationLayer: function(animationLayer) {
-    if(animationLayer) {
-      this.animationLayers.push(animationLayer);
+  addEffectLayer: function(effectLayer) {
+    if(effectLayer) {
+      this.effectLayers.push(effectLayer);
     }
   },
-  getAnimationLayers: function() { return this.animationLayers; },
 
-  // 最後のレイヤーを返す(描画で必要)
+  getEffectLayers: function() { return this.effectLayers; },
+
   getLastLayer: function() {
-    if (this.animationLayers.length == 0) {
+    if (this.effectLayers.length == 0) {
       return this;
     } else {
-      return this.animationLayers[this.animationLayers.length - 1];
+      return this.effectLayers[this.effectLayers.length - 1];
+    }
+  },
+
+  getAnimation: function() {
+    let effect = this._getEffectFromEffectLayers();
+      return new KeyframeEffect(this.targetElem, effect, 10 * 1000); // TODO
+  },
+
+  _getEffectFromEffectLayers: function() {
+    if (this.effectLayers.length > 0) {
+      // TODO : we concerned about effect which different timing(e.g. delay).
+
+      
     }
   },
 };

@@ -26,15 +26,7 @@
   width: 3px;
   -webkit-transform: translateZ(0);
   cursor: col-resize;
-}
-
-.layer {
-  position: absolute;
-  background: #00D;
-  height: 20px;
-  width: 100%;
-  top: 40px;
-  color: white;
+  z-index:999;
 }
 
 .elementLayer {
@@ -47,7 +39,7 @@
   line-height: 20px;
 }
 
-.animationLayer {
+.effectLayer {
   position: absolute;
   background: #D88;
   height: 20px;
