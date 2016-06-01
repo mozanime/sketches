@@ -7,6 +7,7 @@ section {
   position: absolute;
   left: 0;
   will-change: transform;
+  width: 100%;
 }
 
 #background {
@@ -21,17 +22,22 @@ section {
   bottom: 0px;
 }
 
+section iframe {
+  width: 100%;
+}
+
 #background iframe {
-  width: 1524px;
   height: 279px;
 }
 
 #middleground iframe {
-  width: 1832px;
   height: 400px;
 }
 
+#playground iframe {
+  height: 100vh;
+}
+
 #foreground iframe {
-  width: 2048px;
   height: 800px;
 }

@@ -1,0 +1,7 @@
+#butterfly {
+  width: 100px;
+  height: 100px;
+  background-image: url(butterfly.gif);
+  background-size: contain;
+  visibility: hidden;
+}

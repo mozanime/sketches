@@ -1,20 +1,5 @@
 /**
  * timeline.js
- *  タイムラインを表示する
- *  タイムライン上にはレイヤーを表示できる。
- *  レイヤーは ElementLayer / EffectLayer で構成される
- *  EffectLayer は ElementLayer に紐づくため、
- *  ElementLayer に属性として含まれる(好ましくないけどね)
- *
- *  Layer = (ElementLayer | EffectLayer )
- *  ElementLayer.anim = EffectLayer
- *  
- *  code:
- *   let elementLayer = new ElementLayer(targetElem);
- *   timeline.addLayer(elementlayer);
- *   
- *   let effectLayer = new EffectLayer(new Keyframe(...));
- *   timeline.addLayer(elementLayer, effectLayer);
  */
 
 let scrubber;
@@ -38,7 +23,7 @@ function init() {
   timeline.addLayer(elementLayer);
 
 
-  // 仮実装(操作するためのコンポーネントを追加する)
+  // Rough implementation
   window.addEventListener("keyup", (e) => {
     if (e.keyCode == e.DOM_VK_SPACE) {
       timeline.start();
@@ -49,10 +34,18 @@ function init() {
     } else if (e.keyCode == e.DOM_VK_S) {
       timeline.seek(0.25);
     } else if (e.keyCode == e.DOM_VK_A) {
+      // Add new animation effect to main(top layer)
       timeline.addNewEffectLayer(
         new EffectLayer("new animation",
-                        new KeyframeEffect(main, {transform:['rotate(0deg)', 'rotate(180deg)']}, {duration:20*1000, iterations:Infinity})),
-        elementLayer);
+          new KeyframeEffect(main,
+                             {transform:['rotate(0deg)', 'rotate(180deg)']},
+                             {duration:20*1000, iterations:Infinity})),
+          elementLayer);
+      let newElem = document.createElement("div");
+      main.appendChild(newElem);
+        newElem.appendAnimation("./animations/middleground/middleground.html");
+      let newElemLayer = new ElementLayer("Buterfly!", newElem);
+
     }
   });
 
@@ -99,7 +92,8 @@ Timeline.prototype = {
   // スクロールに関するイベントリスナー群
 
   onScrubberMouseDown: function(e) {
-    this.moveScrubberTo(e.pageX);
+      console.log("onscrubbermousedown");
+      this.moveScrubberTo(e.pageX);
     this.scrubber.addEventListener("mouseup", this.onScrubberMouseUp);
     this.containerElement.addEventListener("mouseup", this.onScrubberMouseUp);
     this.containerElement.addEventListener("mousemove", this.onScrubberMouseMove);
@@ -126,7 +120,9 @@ Timeline.prototype = {
   },
 
   moveScrubberTo: function(pageX) {
-    this.scrubber.style.left = ((pageX / this.containerWidth) * 100) + '%';
+    let pos = (pageX / this.containerWidth)
+    this.scrubber.style.left = pos * 100 + '%';
+    this.seek(pos);
   },
 
   // アニメーション全体のシーク・再生・停止動作
@@ -200,6 +196,10 @@ Timeline.prototype = {
     }
   },
 
+  addNewElementLayer: function(elementLayer) {
+    
+  },
+
   addNewEffectLayer: function(effectLayer, targetElementLayer) {
     if (!(targetElementLayer instanceof ElementLayer)) { return; }
     if (!(effectLayer instanceof EffectLayer)) { return; }
@@ -210,7 +210,9 @@ Timeline.prototype = {
       console.log("already added animationlayer");
       return;
     }
-    // TODO recal top position all elements. (currently last element only)
+    // TODO :
+    //   - Recalculate top position all elements. (currently last element only)
+    //   - 
     let anim = new Animation(effectLayer.getEffect(), document.timeline);
     this._addEffectLayer(effectLayer, targetElementLayer);
     this.animationEffects.push(anim);
