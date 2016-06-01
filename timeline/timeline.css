@@ -31,20 +31,28 @@
 
 .elementLayer {
   position: absolute;
-  background: #88D;
+  background: linear-gradient(to bottom, #649ef6 0%,#0081ef 100%);
   height: 20px;
-  width: 100%;
+  width: calc(100% - 2px - 0.5em);
   top: 40px;
   color: white;
   line-height: 20px;
+  border: gray 1px solid;
+  font-size: 12px;
+  font-family: monospace;
+  padding-left: 0.5em;
 }
 
 .effectLayer {
   position: absolute;
-  background: #D88;
+  background: linear-gradient(to bottom, #ff8700 0%,#e17b08 100%);
   height: 20px;
-  width: 100%;
+  width: calc(100% - 2px - 1em);
   top: 40px;
   color: white;
   line-height: 20px;
+  border: gray 1px solid;
+  font-size: 12px;
+  font-family: monospace;
+  padding-left: 1em;
 }
