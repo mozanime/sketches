@@ -291,7 +291,6 @@ Timeline.prototype = {
           // We use to closure variant.
           let left = (ui.position.left / timeline.lineWidth) *
                        timeline.animationsDuration;
-          console.log("[stop]left:" + left + ",width:" + duration);
           anim.cancel();
           let previousEffect = layer.getEffect();
           layer.setEffect(
