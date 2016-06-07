@@ -271,17 +271,20 @@ Timeline.prototype = {
                            timeline.animationsDuration;
           console.log("[stop]width:" + ui.size.width + ",lineWidth:" + timeline.lineWidth + ",animationsDuration:" + timeline.animationsDuration);
           console.log("[stop]left:" + left + ",width:" + duration);
-          anim.cancel();
+          if (anim.playState == 'running') {
+            anim.cancel();
+          }
           let previousEffect = layer.getEffect();
           layer.setEffect(
             new KeyframeEffect(
               previousEffect.target,
               previousEffect.getKeyframes(),
               {delay: left, duration: duration, iterations: previousEffect.timing.iterations}));
-          anim = new Animation(layer.getEffect(), document.timeline)
+          anim = new Animation(layer.getEffect(), document.timeline);
           timeline.animationEffects.push(anim);
           if (timeline.isTimelinePlaying) {
             anim.play();
+            anim.currentTime = timeline.animationEffects[0].currentTime;
           }
         },
       }
@@ -298,10 +301,11 @@ Timeline.prototype = {
               previousEffect.target,
               previousEffect.getKeyframes(),
               {delay: left, duration: previousEffect.timing.duration, iterations: previousEffect.timing.iterations}));
-          anim = new Animation(layer.getEffect(), document.timeline)
+          anim = new Animation(layer.getEffect(), document.timeline);
           timeline.animationEffects.push(anim);
           if (timeline.isTimelinePlaying) {
             anim.play();
+            anim.currentTime = timeline.animationEffects[0].currentTime;
           }
        }
     });
