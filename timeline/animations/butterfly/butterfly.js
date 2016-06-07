@@ -16,8 +16,8 @@
     var keyframes = { transform: [`translate(${startPX}px, ${startVH}vh)`,
                                   `translate(${endPX}px, ${endVH}vh`],
                       visibility: ["hidden", "visible"]};
-    var timing = { duration: duration, delay: delay, easing: easing };
-    butterfly.animate(keyframes, timing).finished.then(fly);
+    var timing = { duration: duration, delay: delay, easing: easing, iterations: Infinity };
+    butterfly.animate(keyframes, timing);//.finished.then(fly);
   };
   document.addEventListener("DOMContentLoaded", function() {
     fly();

@@ -74,6 +74,7 @@ function Timeline() {
   this.scrubberAnimation = undefined;
   this.animationEffects = []; // 各レイヤーを探索する時間を避ける為
   this.animationsDuration = 20*1000;  // Maximum animation duration.(currently fixed value)
+  this.isTimelinePlaying = true;
 
   this.onScrubberMouseDown  = this.onScrubberMouseDown.bind(this);
   this.onScrubberMouseUp    = this.onScrubberMouseUp.bind(this);
@@ -88,13 +89,13 @@ Timeline.prototype = {
 
     // 以下、スクロール部分の実装
     // TODO recalc when resizing window.
-    this.containerWidth = 
+    this.containerWidth =
       parseFloat(getComputedStyle(this.containerElement).width);
 
     this.line = document.createElement("div");
     containerElement.appendChild(this.line);
     this.line.setAttribute("class", "line");
-
+    this.lineWidth = parseFloat(getComputedStyle(this.line).width);
   },
 
   prepare : function() {
@@ -151,6 +152,7 @@ Timeline.prototype = {
 			 {duration:35 * 1000, iterations:Infinity}), document.timeline);
     this.animationEffects.forEach((effect) => { effect.play(); });
     this.scrubberAnimation.play();
+    this.isTimelinePlaying = true;
   },
 
   // シーク(%指定)
@@ -176,6 +178,7 @@ Timeline.prototype = {
     if (!this.scrubberAnimation || this.scrubberAnimation.playState != 'running') { return; }
     this.animationEffects.forEach((effect) => { effect.pause(); });
     this.scrubberAnimation.pause();
+    this.isTimelinePlaying = false;
   },
 
   // レイヤー追加・削除に関する関数群
@@ -204,7 +207,7 @@ Timeline.prototype = {
         for (let i=0; i<anims.length; i++) {
           let anim = anims[i];
           let effectLayer = new EffectLayer("Anim[" + layer.name + "]", anim.effect)
-          this._addEffectLayer(effectLayer, layer);
+          this._addEffectLayer(effectLayer, layer, anim);
           layer.addEffectLayer(effectLayer);
           this.animationEffects.push(anim);
         }
@@ -224,17 +227,22 @@ Timeline.prototype = {
     }
     // TODO :
     //   - Recalculate top position all elements. (currently last element only)
-    let anim = new Animation(effectLayer.getEffect(), document.timeline);
-    this._addEffectLayer(effectLayer, targetElementLayer);
+    let anim = targetElementLayer.getAnimations()[0];
+    if (!anim) {
+      anim = new Animation(effectLayer.getEffect(), document.timeline);
+    }
+    this._addEffectLayer(effectLayer, targetElementLayer, anim);
     this.animationEffects.push(anim);
-    anim.play();
+    if(this.isTimelinePlaying) {
+      anim.play();
+    }
     anim.currentTime = this.animationEffects[0].currentTime;  // TODO
 
     targetElementLayer.addEffectLayer(effectLayer);
     this.reOrderLayer();
   },
 
-  _addEffectLayer: function(layer, targetLayer) {
+  _addEffectLayer: function(layer, targetLayer, anim) {
     if (!(layer instanceof EffectLayer)) { return; }
     let elem = document.createElement("div");
     this.containerElement.appendChild(elem);
@@ -252,6 +260,55 @@ Timeline.prototype = {
     let cs = getComputedStyle(previousElem);
     let previousElemTop = (previousElem.style.top)?parseFloat(previousElem.style.top):parseFloat(cs.top);
     elem.style.top = (previousElemTop + parseFloat(cs.height)) + 'px';
+    $(elem).resizable(
+      {
+        handles: "e,w",
+        stop: function(ev, ui) {
+          // We use to closure variant.
+          let left = (ui.position.left / timeline.lineWidth) *
+                       timeline.animationsDuration;;
+          let duration = (ui.size.width / timeline.lineWidth) *
+                           timeline.animationsDuration;
+          console.log("[stop]width:" + ui.size.width + ",lineWidth:" + timeline.lineWidth + ",animationsDuration:" + timeline.animationsDuration);
+          console.log("[stop]left:" + left + ",width:" + duration);
+          anim.cancel();
+          let previousEffect = layer.getEffect();
+          layer.setEffect(
+            new KeyframeEffect(
+              previousEffect.target,
+              previousEffect.getKeyframes(),
+              {delay: left, duration: duration, iterations: previousEffect.timing.iterations}));
+          anim = new Animation(layer.getEffect(), document.timeline)
+          timeline.animationEffects.push(anim);
+          if (timeline.isTimelinePlaying) {
+            anim.play();
+          }
+        },
+      }
+    ).draggable({
+       axis:"x",
+       stop: function(ev, ui) {
+          // We use to closure variant.
+          let left = (ui.position.left / timeline.lineWidth) *
+                       timeline.animationsDuration;
+          console.log("[stop]left:" + left + ",width:" + duration);
+          anim.cancel();
+          let previousEffect = layer.getEffect();
+          layer.setEffect(
+            new KeyframeEffect(
+              previousEffect.target,
+              previousEffect.getKeyframes(),
+              {delay: left, duration: previousEffect.timing.duration, iterations: previousEffect.timing.iterations}));
+          anim = new Animation(layer.getEffect(), document.timeline)
+          timeline.animationEffects.push(anim);
+          if (timeline.isTimelinePlaying) {
+            anim.play();
+          }
+       }
+    });
+
+    // jQuery ui changed position style. So we should rechange the style position.
+    elem.style.position = "absolute";
   },
 
   // Re-Order and change the position of layer
@@ -324,6 +381,10 @@ function EffectLayer(name, effect) {
 }
 EffectLayer.prototype = {
   getEffect: function() { return this.effect;},
+
+  setEffect: function(effect) {
+    this.effect = effect;
+  },
 
   getEffectDuration: function() {
     if (!this.effect) {
