@@ -11,15 +11,15 @@ section {
 }
 
 #background {
-  bottom: 450px;
+  bottom: 56%;
 }
 
 #middleground {
-  bottom: 50px;
+  bottom: 30%;
 }
 
 #foreground {
-  bottom: 0px;
+  top: 30%;
   z-index: 998;
 }
 
@@ -28,11 +28,15 @@ section iframe {
 }
 
 #background iframe {
-  height: 279px;
+  height: 35%;
 }
 
 #middleground iframe {
-  height: 400px;
+  height: 50%;
+}
+
+#foreground iframe {
+  height: 100%;
 }
 
 #playground iframe {

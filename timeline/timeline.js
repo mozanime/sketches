@@ -6,7 +6,7 @@ let scrubber;
 let timeline;
 
 document.addEventListener("DOMContentLoaded", ()=>{
-    setTimeout(init, 100);
+    setTimeout(init, 300);
 });
 function init() {
   scrubber = document.getElementById("scrubber");
@@ -62,6 +62,44 @@ function init() {
       } else {
         scrubber.style.visibility = 'hidden';
       }
+      break;
+    case e.DOM_VK_C:
+        for (let i=0; i<timeline.layers.length; i++) {
+          let layer = timeline.layers[i];
+          layer.targetElem.style.visibility = 'hidden';
+          layer.elem.style.visibility = 'hidden';
+          let animations = layer.getAnimatedElement().getAnimations();
+          Array.forEach(animations, (animation) => {
+            animation.pause();
+          });
+          let effectLayers = layer.getEffectLayers();
+          Array.forEach(effectLayers, (effectLayer) => {
+              effectLayer.elem.style.visibility  = 'hidden';
+          });
+      }
+      break;
+    case e.DOM_VK_1:
+    case e.DOM_VK_2:
+    case e.DOM_VK_3:
+    case e.DOM_VK_4:
+    case e.DOM_VK_5:
+    case e.DOM_VK_6:
+    case e.DOM_VK_7:
+    case e.DOM_VK_8:
+    case e.DOM_VK_9:
+      let targetLayer = e.keyCode - e.DOM_VK_1;
+      let layer = timeline.layers[targetLayer];
+      layer.targetElem.style.visibility = 'visible';
+      layer.elem.style.visibility = 'visible';
+      let animations = layer.getAnimatedElement().getAnimations();
+      Array.forEach(animations, (animation) => {
+        animation.play();
+        animation.currentTime = timeline.scrubberAnimation.currentTime;
+      });
+      let effectLayers = layer.getEffectLayers();
+      Array.forEach(effectLayers, (effectLayer) => {
+        effectLayer.elem.style.visibility  = 'visible';
+      });
       break;
     }
   });
@@ -193,7 +231,11 @@ Timeline.prototype = {
       this.containerElement.appendChild(elem);
       layer.elem = elem;
       elem.setAttribute("class", "elementLayer");
-      elem.innerText = layer.name;
+      elem.innerHTML = "<input type='checkbox' checked id='" + layer.name + "'/>" + layer.name;
+      
+      document.getElementById(layer.name).addEventListener("click", (evt)=>{
+        console.log("changed");
+      });
 
       let last = this.getLastLayer();
       let cs = getComputedStyle(last);
@@ -255,7 +297,7 @@ Timeline.prototype = {
       this.recalcAnimationTimelineWidth();
     }
 
-    elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 100) + '%';
+    elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 95) + '%';
     let previousElem = targetLayer.getLastLayer().elem;
     let cs = getComputedStyle(previousElem);
     let previousElemTop = (previousElem.style.top)?parseFloat(previousElem.style.top):parseFloat(cs.top);
@@ -361,7 +403,7 @@ Timeline.prototype = {
   recalcAnimationTimelineWidth: function() {
     this.layers.forEach((layer) => {
       if (layer instanceof EffectLayer && layer.elem) {
-          layer.elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 100) + '%';
+          layer.elem.style.width = ((layer.getEffectDuration() / this.animationsDuration) * 95) + '%';
       }
     });
   },

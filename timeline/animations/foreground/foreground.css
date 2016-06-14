@@ -1,11 +1,11 @@
 @keyframes left {
-  from { transform: translate(-2048px); }
+  from { transform: translate(-100%); }
   to {   transform: translate(0px); }
 }
 
 @keyframes right {
   from { transform: translate(0px); }
-  to {   transform: translate(2048px); }
+  to {   transform: translate(100%); }
 }
 
 div {
@@ -13,8 +13,9 @@ div {
   left: 0;
   bottom: 0;
   background-image: url(foreground.png);
-  width: 2048px;
-  height: 800px;
+  background-size: 100%;
+  width: 100%;
+  height: 100%;
   background-repeat: no-repeat;
   animation-duration: 10s;
   animation-timing-function: linear;
